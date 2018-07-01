@@ -8,44 +8,20 @@
       </div>
       <h3 class="title">推荐商品</h3>
       <ul class="itemList">
-        <li>
-          <img src="/static/images/goods.jpg" alt="商品图片">
+        <li v-for="item in goodsList">
+          <img v-lazy="'/static/goodsImg/'+item.productImage" alt="商品图片">
           <div class="goodsItem">
-              <h4>【网红】天润风味发酵乳巴拉巴拉</h4>
+              <h4>{{item.productName}}</h4>
               <p>来自新疆的网红酸奶</p>
               <div class="price">
-                <span class="now">￥8.9</span>
+                <span class="now">￥{{item.salePrice}}</span>
                 <span class="ago">￥11.9</span>
               </div>
-            <img src="/static/images/cart.png" alt="加入购物车" class="putCart">
-          </div>
-        </li>
-        <li>
-          <img src="/static/images/goods.jpg" alt="商品图片">
-          <div class="goodsItem">
-            <h4>【网红】天润风味发酵乳巴拉巴拉</h4>
-            <p>来自新疆的网红酸奶</p>
-            <div class="price">
-              <span class="now">￥8.9</span>
-              <span class="ago">￥11.9</span>
-            </div>
-            <img src="/static/images/cart.png" alt="加入购物车" class="putCart">
-          </div>
-        </li>
-        <li>
-          <img src="/static/images/goods.jpg" alt="商品图片">
-          <div class="goodsItem">
-            <h4>【网红】天润风味发酵乳巴拉巴拉</h4>
-            <p>来自新疆的网红酸奶</p>
-            <div class="price">
-              <span class="now">￥8.9</span>
-              <span class="ago">￥11.9</span>
-            </div>
-            <img src="/static/images/cart.png" alt="加入购物车" class="putCart">
+            <img src="/static/images/cart.png" alt="加入购物车" class="putCart" @click="addCart(item.productId,item.salePrice)">
           </div>
         </li>
       </ul>
-      <my-footer @toDao="go"></my-footer>
+      <my-footer @toDao="go" :price="totalPrice"></my-footer>
     </div>
 </template>
 
@@ -54,14 +30,56 @@
   import myFooter from '../components/goodsFooter'
     export default {
         name: "search",
+      data(){
+          return {
+            goodsList:[],
+            totalPrice:0
+          }
+      },
       components:{
         myHeader,
         myFooter
       },
+      mounted(){
+          this.getGoodList();
+          this.getGoodsNum();
+      },
       methods:{
          go(){
+           if(this.$store.state.goodsNum==0){
+             this.$toasted.show('购物车里还没东西',{position:'top-center',duration:1000});
+             return false;
+           }
            this.$router.push('/daohang')
-         }
+         },
+        getGoodList(){
+            this.$http.get('/api/goods/goodsList').then(res=>{
+              let result = res.data;
+              if(result.status == 0){
+                this.goodsList = result.result;
+              }
+            })
+        },
+        addCart(id,price){
+          this.$http.post('/api/goods/addCart',{productId:id}).then(res=>{
+            var result = res.data;
+            if(result.status==0){
+              this.$store.commit('updateNum',1);
+              this.totalPrice+=price;
+              this.$toasted.show('加入购物车成功',{position:'top-center',duration:1000,type:'success'});
+            }else if(result.status==3){
+              this.$toasted.show(result.msg,{position:'top-center',duration:1000,type:'error'});
+            }
+          })
+        },
+        getGoodsNum(){
+          this.$http.get('/api/goods/cartNum').then(res=>{
+            this.$store.state.goodsNum = res.data.result.length;
+            res.data.result.forEach(item=>{
+              this.totalPrice +=item.salePrice
+            })
+          })
+        }
       }
     }
 </script>
@@ -88,6 +106,7 @@
         height: 0.3rem;
         padding-left: 0.3rem;
         display: inline-block;
+        border-radius: 8px;
       }
       button{
         height: 0.3rem;

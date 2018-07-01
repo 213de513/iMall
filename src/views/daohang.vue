@@ -4,40 +4,23 @@
       <div class="content">
         <span class="glyphicon glyphicon-circle-arrow-up arrow"></span>
         <canvas id="map"></canvas>
-        <div class="nextGood">
-            您距离下个商品——<span style="color: #eb5648;">西瓜</span>  &nbsp;还有<span style="color: #eb5648;">15</span>米
-        </div>
+        <!--<div class="nextGood">-->
+            <!--您距离下个商品——<span style="color: #eb5648;">西瓜</span>  &nbsp;还有<span style="color: #eb5648;">15</span>米-->
+        <!--</div>-->
         <div class="cartList">
           <h4>购物车：</h4>
           <ul>
-            <li>
-              <img src="/static/images/goods.jpg" alt="商品">
-              <span class="goodsName">天润风味发酵乳巴拉巴拉</span>
-              <span class="goodsPrice">￥8.9</span>
-              <span class="glyphicon glyphicon-trash delete"></span>
+            <li v-for="item in cartList">
+              <img :src="'/static/goodsImg/'+item.productImage" alt="商品">
+              <span class="goodsName">{{item.productName}}</span>
+              <span class="goodsPrice">￥{{item.salePrice}}</span>
+              <span class="glyphicon glyphicon-trash delete" @click="deleteGoods(item.productId)"></span>
             </li>
-            <li>
-              <img src="/static/images/goods.jpg" alt="商品">
-              <span class="goodsName">天润风味发酵乳巴拉巴拉</span>
-              <span class="goodsPrice">￥8.9</span>
-              <span class="glyphicon glyphicon-trash delete"></span>
-            </li>
-            <li>
-              <img src="/static/images/goods.jpg" alt="商品">
-              <span class="goodsName">天润风味发酵乳巴拉巴拉</span>
-              <span class="goodsPrice">￥8.9</span>
-              <span class="glyphicon glyphicon-trash delete"></span>
-            </li>
-            <li>
-              <img src="/static/images/goods.jpg" alt="商品">
-              <span class="goodsName">天润风味发酵乳巴拉巴拉</span>
-              <span class="goodsPrice">￥8.9</span>
-              <span class="glyphicon glyphicon-trash delete"></span>
-            </li>
+            <li v-show="cartList.length==0" style="text-align: center">没有商品啦</li>
           </ul>
         </div>
       </div>
-      <my-footer @toDao="end">结束导航 <span class="glyphicon glyphicon-shopping-cart"></span></my-footer>
+      <my-footer @toDao="end" :price="totalPrice">结束导航 <span class="glyphicon glyphicon-shopping-cart"></span></my-footer>
     </div>
 </template>
 
@@ -50,12 +33,68 @@
         myHeader,
         myFooter
       },
+      data(){
+          return {
+            cartList:[],
+            totalPrice:0
+          }
+      },
+      mounted(){
+        if(window.DeviceOrientationEvent){//返回一个DeviceOrientationEvent对象
+          window.addEventListener('deviceorientation',this.zhinanzhen,false);///添加监听事件
+        }else{
+          alert("您的浏览器不支持DeviceOrientation");
+        }
+          this.getCartItem();
+      },
       methods:{
           end(){
-            this.$toasted.show('感谢您的使用，再见',{position:'top-center',duration:1000});
-            setTimeout(()=>{
-              this.$router.push('/');
-            },1000)
+            this.$http.post('/api/logout').then(res=>{
+              if(res.data.status==0){
+                this.$toasted.show('感谢您的使用',{position:'top-center',duration:1000});
+                setTimeout(()=>{
+                  this.$router.push('/');
+                },1000)
+              }
+            });
+          },
+          getCartItem(){
+            this.$http.get('/api/goods/cartNum').then(res=>{
+              var result = res.data;
+              if(result.status==0){
+                this.cartList = result.result; //渲染列表
+                this.$store.state.goodsNum = res.data.result.length; //商品数量
+                this.totalPrice = 0;
+                this.cartList.forEach(item=>{
+                  this.totalPrice +=item.salePrice
+                });
+                if(this.cartList.length<=0){
+                  this.$toasted.show('去选购商品吧',{position:'top-center',duration:1000});
+                  setTimeout(() =>{
+                    this.$router.push('/search');
+                  },1100);
+                }
+              }
+            })
+          },
+          deleteGoods(id){
+              this.$http.post('/api/goods/deleteItem',{productId:id}).then(res=>{
+                let result = res.data;
+                if(result.status==0){
+                  this.$store.commit('updateNum',-1);
+                  this.$toasted.show(result.msg,{position:'top-center',duration:1000,type:'success'})
+                  this.getCartItem();
+                }
+              })
+          },
+          zhinanzhen(event){
+            let arrow = document.getElementsByClassName('arrow')[0];
+            let alpha = event.alpha; //Z轴方向
+            let beta = event.beta,//X轴方向
+              gamma = event.gamma;//Y轴方向
+            if (alpha != null) {
+              arrow.style.webkitTransform = "rotate(" + alpha + "deg)";//箭头旋转
+            }
           }
       }
     }
@@ -95,6 +134,7 @@
     padding: 0.2rem;
     border: 1px solid #EB5648;
     border-radius: 0.08rem;
+    margin-top: 0.18rem;
     margin-bottom: 0.5rem;
     h4{
       font-size: 0.18rem;
@@ -134,6 +174,8 @@
           font-size: 0.18rem;
           margin-left: 0.2rem;
           color: #aaa;
+          float: right;
+          margin-top: 0.16rem;
         }
       }
     }

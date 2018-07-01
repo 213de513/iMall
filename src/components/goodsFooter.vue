@@ -1,6 +1,6 @@
 <template>
     <div class="goods-footer">
-      商品数量：<span class="goodsNum">10 </span>  总金额：<span class="totlePrice">￥185.99</span>
+      商品数量：<span class="goodsNum">{{goodsNumber}}</span>&nbsp;总金额：<span class="totlePrice">￥{{price}}</span>
       <button class="toDao" @click="toDao">
         <slot>开始导航 <span class="glyphicon glyphicon-shopping-cart"></span></slot>
       </button>
@@ -13,6 +13,12 @@
       methods:{
           toDao(){
             this.$emit('toDao');
+          }
+      },
+      props:['price'],
+      computed:{
+          goodsNumber(){
+            return this.$store.state.goodsNum
           }
       }
     }
@@ -48,6 +54,8 @@
     line-height: 0.31rem;
     font-weight: normal;
     margin-left: 0.1rem;
+    float: right;
+    margin-top: 0.08rem;
   }
 }
 </style>
