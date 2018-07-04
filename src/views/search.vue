@@ -3,25 +3,25 @@
       <my-header >返回</my-header>
       <div class="search-bar">
         <span class="glyphicon glyphicon-search"></span>
-        <input type="text" placeholder="请输入商品名称" class="form-control search">
-        <button>搜索</button>
+        <input type="text" placeholder="请输入商品名称" class="form-control search" v-model="goodsName">
+        <button @click="search">搜索</button>
       </div>
       <h3 class="title">推荐商品</h3>
       <ul class="itemList">
         <li v-for="item in goodsList">
-          <img v-lazy="'/static/goodsImg/'+item.productImage" alt="商品图片">
+          <img v-lazy="'/static/goodsImg/1.jpg'" alt="商品图片">
           <div class="goodsItem">
-              <h4>{{item.productName}}</h4>
-              <p>来自新疆的网红酸奶</p>
+              <h4>{{item.name}}</h4>
+              <p>{{item.disc}}</p>
               <div class="price">
-                <span class="now">￥{{item.salePrice}}</span>
-                <span class="ago">￥11.9</span>
+                <span class="now">￥{{item.newPrice}}</span>
+                <span class="ago">￥{{item.oldPrice}}</span>
               </div>
-            <img src="/static/images/cart.png" alt="加入购物车" class="putCart" @click="addCart(item.productId,item.salePrice)">
+            <img src="/static/images/cart.png" alt="加入购物车" class="putCart" @click="addCart(item.id,item.newPrice)">
           </div>
         </li>
       </ul>
-      <my-footer @toDao="go" :price="totalPrice"></my-footer>
+      <my-footer @toDao="go" ></my-footer>
     </div>
 </template>
 
@@ -33,7 +33,8 @@
       data(){
           return {
             goodsList:[],
-            totalPrice:0
+            totalPrice:0,
+            goodsName:''
           }
       },
       components:{
@@ -44,6 +45,12 @@
           this.getGoodList();
           this.getGoodsNum();
       },
+      computed:{
+          cartId(){
+            var cookieArr = document.cookie.split('; ')[1].slice(11);
+            return cookieArr;
+          }
+      },
       methods:{
          go(){
            if(this.$store.state.goodsNum==0){
@@ -53,32 +60,41 @@
            this.$router.push('/daohang')
          },
         getGoodList(){
-            this.$http.get('/api/goods/goodsList').then(res=>{
+            this.$http.post('/api/getGoodsList').then(res=>{
               let result = res.data;
-              if(result.status == 0){
-                this.goodsList = result.result;
+              if(result.code == '1000'){
+                this.goodsList = result.allGoods;
               }
             })
         },
         addCart(id,price){
-          this.$http.post('/api/goods/addCart',{productId:id}).then(res=>{
-            var result = res.data;
-            if(result.status==0){
+            this.$http.post('/api/add_goods',{goods_id:id,trolley_id:this.cartId}).then(res=>{
+            let result = res.data;
+            if(result.code=='1000'){
               this.$store.commit('updateNum',1);
-              this.totalPrice+=price;
+
+              this.$store.commit('updateAmount',price);
               this.$toasted.show('加入购物车成功',{position:'top-center',duration:1000,type:'success'});
-            }else if(result.status==3){
-              this.$toasted.show(result.msg,{position:'top-center',duration:1000,type:'error'});
+            }else if(result.code=='1001'){
+              this.$toasted.show("不能重复加入购物车",{position:'top-center',duration:1000,type:'error'});
             }
           })
         },
         getGoodsNum(){
-          this.$http.get('/api/goods/cartNum').then(res=>{
-            this.$store.state.goodsNum = res.data.result.length;
-            res.data.result.forEach(item=>{
-              this.totalPrice +=item.salePrice
-            })
+          this.$http.post('/api/getTrolleyInfo',{trolley_id:this.cartId}).then(res=>{
+            this.$store.state.goodsNum = res.data.count;
+            this.$store.state.amount = res.data.amount;
           })
+        },
+        search(){
+           this.$http.post('/api/search',{name:this.goodsName,trolley_id:this.cartId}).then(res=>{
+             var result = res.data;
+             if(result.code=='1000'){
+               this.goodsList = result.searchGoods;
+             }else{
+               this.$toasted.show("没有该商品!",{position:'top-center',duration:1000,type:'error'})
+             }
+           })
         }
       }
     }

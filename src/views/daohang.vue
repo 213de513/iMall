@@ -3,18 +3,18 @@
       <my-header >返回</my-header>
       <div class="content">
         <span class="glyphicon glyphicon-circle-arrow-up arrow"></span>
-        <canvas id="map"></canvas>
+        <canvas id="map" width="300" height="300"></canvas>
         <!--<div class="nextGood">-->
             <!--您距离下个商品——<span style="color: #eb5648;">西瓜</span>  &nbsp;还有<span style="color: #eb5648;">15</span>米-->
         <!--</div>-->
         <div class="cartList">
           <h4>购物车：</h4>
           <ul>
-            <li v-for="item in cartList">
-              <img :src="'/static/goodsImg/'+item.productImage" alt="商品">
-              <span class="goodsName">{{item.productName}}</span>
-              <span class="goodsPrice">￥{{item.salePrice}}</span>
-              <span class="glyphicon glyphicon-trash delete" @click="deleteGoods(item.productId)"></span>
+            <li v-for="item in cartList" >
+              <img :src="'/static/goodsImg/1.jpg'" alt="商品">
+              <span class="goodsName">{{item.name}}</span>
+              <span class="goodsPrice">￥{{item.newPrice}}</span>
+              <span class="glyphicon glyphicon-trash delete" @click="deleteGoods(item.id,item.newPrice)"></span>
             </li>
             <li v-show="cartList.length==0" style="text-align: center">没有商品啦</li>
           </ul>
@@ -39,19 +39,28 @@
             totalPrice:0
           }
       },
+      computed:{
+        cartId(){
+          var cookieArr = document.cookie.split('; ')[1].slice(11);
+          return cookieArr;
+        }
+      },
       mounted(){
+        this.drawCanvas();
         if(window.DeviceOrientationEvent){//返回一个DeviceOrientationEvent对象
           window.addEventListener('deviceorientation',this.zhinanzhen,false);///添加监听事件
         }else{
           alert("您的浏览器不支持DeviceOrientation");
         }
           this.getCartItem();
+
       },
       methods:{
           end(){
-            this.$http.post('/api/logout').then(res=>{
-              if(res.data.status==0){
+            this.$http.post('/api/logout',{trolley_id:this.cartId}).then(res=>{
+              if(res.data.code=='1000'){
                 this.$toasted.show('感谢您的使用',{position:'top-center',duration:1000});
+                document.cookie = 'trolley_id=""';
                 setTimeout(()=>{
                   this.$router.push('/');
                 },1000)
@@ -59,30 +68,35 @@
             });
           },
           getCartItem(){
-            this.$http.get('/api/goods/cartNum').then(res=>{
+            this.$http.post('/api/getTrolleyGoods',{trolley_id:this.cartId}).then(res=>{
               var result = res.data;
-              if(result.status==0){
-                this.cartList = result.result; //渲染列表
-                this.$store.state.goodsNum = res.data.result.length; //商品数量
-                this.totalPrice = 0;
+              if(result.code=='1000'){
+                this.cartList = result.trolley_goods; //渲染列表
+                this.$store.state.goodsNum = res.data.trolley_goods.length; //商品数量
+                  var price = 0;
                 this.cartList.forEach(item=>{
-                  this.totalPrice +=item.salePrice
+                 price+=item.newPrice;
                 });
-                if(this.cartList.length<=0){
+                this.$store.state.amount = price;
+              }
+                else{
+                this.cartList=[];
+                this.totalPrice = 0;
+                this.$store.state.amount = 0;
                   this.$toasted.show('去选购商品吧',{position:'top-center',duration:1000});
                   setTimeout(() =>{
                     this.$router.push('/search');
                   },1100);
-                }
               }
             })
           },
-          deleteGoods(id){
-              this.$http.post('/api/goods/deleteItem',{productId:id}).then(res=>{
+          deleteGoods(id,price){
+              this.$http.post('/api/delete_goods',{goods_id:id,trolley_id:this.cartId}).then(res=>{
                 let result = res.data;
-                if(result.status==0){
+                if(result.code=='1000'){
                   this.$store.commit('updateNum',-1);
-                  this.$toasted.show(result.msg,{position:'top-center',duration:1000,type:'success'})
+                  this.$toasted.show('删除商品成功',{position:'top-center',duration:1000,type:'success'});
+                  this.$store.commit('updateAmount',-price);
                   this.getCartItem();
                 }
               })
@@ -95,7 +109,78 @@
             if (alpha != null) {
               arrow.style.webkitTransform = "rotate(" + alpha + "deg)";//箭头旋转
             }
-          }
+          },
+          getWS(){
+            let url = '';
+            let ws = '';
+            let ctx = document.getElementById('map').getContext('2d');
+            ctx.strokeStyle = '#0000ff';
+            ctx.lineWidth = 3;
+            if('WebSocket' in window){
+              ws = new WebSocket(url);
+            }
+            else if('MozWebSocket' in window){
+              ws = new MozWebSocket(url);
+            }
+            ws.onopen = function(){
+              console.log("已经打开了websocket连接，可以进行实时通信了");
+            };
+            ws.onmessage = function(e){
+              console.log("接受到来自服务器端的数据:"+e.data);
+              if(e.data.code=='1000'){
+                console.log(e.data);
+                ctx.clearRect(0,0,300,300);
+                let arr = [
+                  {x:290,y:300,ori:'north'},
+                  {x:290,y:240,ori:'north'},
+                  {x:150,y:240,ori:'west'}
+                ];
+                for(let i=0;i<arr.length;i++){
+                  ctx.moveTo(arr[i].x,arr[i].y);
+                  if(arr[i+1]){
+                    ctx.lineTo(arr[i+1].x,arr[i+1].y);
+                  }
+                  ctx.stroke();
+                }
+              }
+            };
+            ws.onerror = function(e){
+              console.log("websocket连接错误"+e.error);
+              ws.close(3000,"websocket连接异常导致的关闭");
+            };
+            ws.onclose = function(e){
+              console.log("websocket关闭连接:"+e.error);
+            };
+          },
+         drawCanvas(){
+           let ctx = document.getElementById('map').getContext('2d');
+           ctx.strokeStyle = '#0000ff';
+           ctx.lineWidth = 3;
+           ctx.lineCap="round";
+           ctx.clearRect(0,0,300,300);
+           var img = new Image();
+           var end = new Image();
+           let arr = [
+             {x:290,y:300,ori:'north'},
+             {x:290,y:240,ori:'north'},
+             {x:150,y:240,ori:'west'}
+           ];
+           img.onload = function () {
+             ctx.drawImage(img,(arr[0].x-10),(arr[0].y)-10,20,20);
+           };
+           end.onload = function () {
+             ctx.drawImage(end,(arr[arr.length-1].x-15),(arr[arr.length-1].y-12.5),30,25)
+           };
+           img.src = '/static/images/cart.png';
+           end.src = '/static/images/star.png';
+           for(let i=0;i<arr.length;i++){
+             ctx.moveTo(arr[i].x,arr[i].y);
+             if(arr[i+1]){
+               ctx.lineTo(arr[i+1].x,arr[i+1].y);
+             }
+             ctx.stroke();
+           }
+         }
       }
     }
 </script>
@@ -119,6 +204,7 @@
     margin: 0 auto;
     background: url("/static/images/map.png") no-repeat ;
     background-size: cover;
+    border: 2px solid #EB5648;
   }
   .nextGood{
     height: 0.57rem;

@@ -1,6 +1,6 @@
 <template>
     <div class="goods-footer">
-      商品数量：<span class="goodsNum">{{goodsNumber}}</span>&nbsp;总金额：<span class="totlePrice">￥{{price}}</span>
+      商品数量：<span class="goodsNum">{{goodsNumber}}</span>&nbsp;总金额：<span class="totlePrice">￥{{amount}}</span>
       <button class="toDao" @click="toDao">
         <slot>开始导航 <span class="glyphicon glyphicon-shopping-cart"></span></slot>
       </button>
@@ -19,7 +19,10 @@
       computed:{
           goodsNumber(){
             return this.$store.state.goodsNum
-          }
+          },
+        amount(){
+            return this.$store.state.amount
+        }
       }
     }
 </script>

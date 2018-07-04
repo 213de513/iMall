@@ -7,7 +7,7 @@
   <div class="model" v-show="mdShow" @click.stop="mdShow = false">
   </div>
   <div class="input" v-show="mdShow">
-    <label for="cartNum">输入购物车编号:  &nbsp;</label><input type="text" class="form-control" id="cartNum" v-model="cartNum">
+    <label for="cartNum">输入购物车编号:  &nbsp;</label><input type="text" class="form-control" id="cartNum" v-model="cartNum" @keyup.enter="toSearch">
     <button @click="toSearch">绑定购物车</button>
   </div>
   <my-footer></my-footer>
@@ -34,16 +34,19 @@
           if(this.cartNum ===''){
             this.$toasted.show('购物车编号不能为空',{position:'top-center',duration:1000});
           }else{
-            this.$http.post('/api/login',{cartId:this.cartNum}).then(res=>{
+            this.$http.post('/api/login',{trolley_id:this.cartNum}).then(res=>{
               let result = res.data;
-              if(result.status==0){
+              if(result.code=='1000'){
                 this.cartNum ='';
                 this.mdShow = false;
+                console.log(result.trolley_id);
+                document.cookie = 'trolley_id='+result.trolley_id;
+                this.$store.state.cartId = result.trolley_id;
                 this.$toasted.show('购物车绑定成功',{position:'top-center',duration:1000,type:'success'});
                 setTimeout(()=> {
                   this.$router.push('/search');
-                },1200);
-              }else if(result.status==2){
+                },1100);
+              }else if(result.code=='1001'){
                 this.$toasted.show('没有该购物车',{position:'top-center',duration:1000,type:'error'});
                 this.cartNum='';
               }
